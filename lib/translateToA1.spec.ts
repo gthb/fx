@@ -262,6 +262,24 @@ describe('quote sheet prefix on RHS of range operator', () => {
   test('already-quoted RHS prefix is not double-quoted', () => {
     isR2A("='Sheet 1'!R1C1:'Sheet 1'!R2C2", 'A1', "='Sheet 1'!$A$1:'Sheet 1'!$B$2");
   });
+
+  test('whitespace around the range operator does not hide it', () => {
+    // Excel takes the spaces, so the operand is the first token past the colon rather than the
+    // token directly in front of the prefix
+    isR2A('=Sheet1!R1C1: Sheet1!R2C2', 'A1', "=Sheet1!$A$1: 'Sheet1'!$B$2");
+  });
+
+  test('the added quotes are counted into the tokens that follow', () => {
+    // the quoting runs after the translation, so it carries a skew of its own; without one, every
+    // loc past a quoted prefix is short by the two quotes
+    const tokens = translateTokensToA1(
+      tokenize('=Sheet1!R1C1:Sheet1!R2C2+1', { withLocation: true, mergeRefs: true, r1c1: true }),
+      'A1'
+    );
+    const formula = tokens.map(d => d.value).join('');
+    expect(formula).toBe("=Sheet1!$A$1:'Sheet1'!$B$2+1");
+    expect(tokens.map(d => formula.slice(d.loc[0], d.loc[1]))).toEqual(tokens.map(d => d.value));
+  });
 });
 
 describe('translate 3-D references', () => {

@@ -149,6 +149,29 @@ describe('fixRanges prefixes', () => {
     isFixed('=SUM([Book.xlsx]1:3!A1)', "=SUM('[Book.xlsx]1:3'!A1)");
   });
 
+  test('a prefix at a range operator keeps the quotes it arrived with', () => {
+    // The name alone does not call for these quotes, but dropping them lets the prefix merge with
+    // the operand on its left into a sheet range, which names sheets the input never named:
+    // "=SUM(Mar:.Mar!A1)" is the two sheets "Mar" and ".Mar".
+    isFixed("=SUM(Mar:'.Mar'!A1)", "=SUM(Mar:'.Mar'!A1)");
+    isFixed("=SUM(Alpha:'Gamma'!A1)", "=SUM(Alpha:'Gamma'!A1)");
+    isFixed("=SUM(Q1:'Sales'!A1)", "=SUM(Q1:'Sales'!A1)");
+    isFixed("=Sheet1!A1:'Sheet2'!B2", "=Sheet1!A1:'Sheet2'!B2");
+    isFixed("=SUM(Mar:'.Mar'!A1)", "=SUM(Mar:'.Mar'!A1)", { xlsx: true });
+    // the range behind the prefix is still normalized
+    isFixed("=SUM(Mar:'.Mar'!B2:A1)", "=SUM(Mar:'.Mar'!A1:B2)");
+    // Excel allows whitespace around the range colon, so the operand is the first token past it
+    isFixed("=SUM(A1: 'Sales'!B2)", "=SUM(A1: 'Sales'!B2)");
+    // ... but quotes are not added where they were not written. Excel does write every prefix in
+    // this position quoted, and translateToA1 follows it; adding them here would rewrite
+    // references a caller never asked about.
+    isFixed('=Sheet1!A1:Sheet2!B2', '=Sheet1!A1:Sheet2!B2');
+    isFixed('=B!F2:B!F20', '=B!F2:B!F20');
+    // ... and a prefix that is not at a range operator keeps only the quotes its name calls for
+    isFixed("=SUM('Sales'!A1)", '=SUM(Sales!A1)');
+    isFixed("=SUM('Sales'!A1:B2)", '=SUM(Sales!A1:B2)');
+  });
+
   test('a left side that is also a cell address wins over a 3-D reference', () => {
     isFixed('=SUM(A1:B2!C3)', "=SUM(A1:'B2'!C3)");
     isFixed("=SUM('A1:B2'!C3)", "=SUM('A1:B2'!C3)");

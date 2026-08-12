@@ -6,8 +6,10 @@ import type {
   ReferenceStructXlsx,
   ReferenceR1C1Xlsx,
   ReferenceName,
-  ReferenceNameXlsx
+  ReferenceNameXlsx,
+  Token
 } from './types.ts';
+import { NEWLINE, OPERATOR, WHITESPACE } from './constants.ts';
 import { splitSheetRange } from './splitSheetRange.ts';
 import { isCellAddress } from './lexers/sheetPrefix.ts';
 
@@ -84,6 +86,39 @@ export function needQuotesSheet (scope: string, yesItDoes = 0, r1c1 = false): nu
 
 export function quotePrefix (prefix) {
   return "'" + prefix.replace(/'/g, "''") + "'";
+}
+
+// The quoting rules above are given a name and nothing else, so they cannot see the one thing
+// that makes a quote load-bearing for no reason of the name's own: where the prefix *stands*. At
+// a range operator's right endpoint a bare prefix can merge with the operand on its left into a
+// sheet range, so writing `Mar:'.Mar'!A1` back as `Mar:.Mar!A1` names two sheets where the input
+// named one, and `Alpha:'Gamma'!A1` back as `Alpha:Gamma!A1` does the same. The two helpers below
+// let a caller holding the token list answer that question, which the name alone cannot.
+//
+// Excel goes further and writes *every* prefix in that position quoted, storing
+// `Sheet1!A1:Sheet2!B2` as `Sheet1!A1:'Sheet2'!B2`, and `translateToA1` follows it there.
+
+// Does the token at `index` stand at a range operator's right endpoint? Excel allows whitespace
+// around that colon, so the operand is the first token before it that is not spacing.
+export function followsRangeOperator (tokens: Token[], index: number): boolean {
+  for (let i = index - 1; i >= 0; i--) {
+    const token = tokens[i];
+    if (token.type !== WHITESPACE && token.type !== NEWLINE) {
+      return token.type === OPERATOR && token.value === ':';
+    }
+  }
+  return false;
+}
+
+// A serialized reference with its prefix quoted, or unchanged where it has no prefix or the
+// prefix is quoted already. A prefix is quoted whole, brackets and all, which is where Excel puts
+// the quotes too: `A1:[Book.xlsx]Jan:Apr!B2` is stored `A1:'[1]Jan:Apr'!B2`.
+export function quoteRefPrefix (value: string): string {
+  const bang = value.indexOf('!');
+  if (bang < 1 || value.startsWith("'")) {
+    return value;
+  }
+  return quotePrefix(value.slice(0, bang)) + value.slice(bang);
 }
 
 export function stringifyPrefix (

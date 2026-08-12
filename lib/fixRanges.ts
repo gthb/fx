@@ -9,6 +9,7 @@ import { REF_STRUCT } from './constants.ts';
 import type { ReferenceA1, ReferenceA1Xlsx, Token } from './types.ts';
 import { cloneToken } from './cloneToken.ts';
 import { stringifyTokens } from './stringifyTokens.ts';
+import { followsRangeOperator, quoteRefPrefix } from './stringifyPrefix.ts';
 
 // There is no R1C1 counterpart to this. This is because without an anchor cell
 // it is impossible to determine if a relative+absolute range (R[1]C[1]:R5C5)
@@ -23,6 +24,22 @@ import { stringifyTokens } from './stringifyTokens.ts';
 // - correcting each name's case to the sheet's own
 //
 // All three need the workbook's sheet names, in order.
+
+// Re-deciding a prefix's quotes from its sheet name alone loses the ones that are there for where
+// the prefix stands rather than for what it is called: at a range operator's right endpoint, a
+// bare prefix can merge with the operand on its left into a sheet range, so `Mar:'.Mar'!A1`
+// written back bare would name the two sheets `Mar` and `.Mar` where the input named one. In that
+// position a prefix therefore keeps the quotes it arrived with, on top of any its name calls for.
+//
+// It does not gain quotes it arrived without. Excel writes every prefix there quoted, and
+// `translateToA1` follows it, but adding them here would rewrite references a caller never asked
+// about; keeping them is what stops the reference changing, and it leaves `translateToA1`'s
+// output alone rather than undoing it.
+function keepPrefixQuotes (value: string, tokens: Token[], index: number): string {
+  return (tokens[index].value.startsWith("'") && followsRangeOperator(tokens, index))
+    ? quoteRefPrefix(value)
+    : value;
+}
 
 /**
  * Options for {@link fixTokenRanges} and {@link fixFormulaRanges}.
@@ -91,7 +108,8 @@ export function fixTokenRanges (
   const { addBounds, thisRow } = options;
   let offsetSkew = 0;
   const output: Token[] = [];
-  for (const t of tokens) {
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
     const token = cloneToken(t);
     let offsetDelta = 0;
     if (token.type === REF_STRUCT) {
@@ -107,7 +125,7 @@ export function fixTokenRanges (
       if (addBounds) {
         addA1RangeBounds(range);
       }
-      const newValue = stringifyA1Ref(ref);
+      const newValue = keepPrefixQuotes(stringifyA1Ref(ref), tokens, i);
       offsetDelta = newValue.length - token.value.length;
       token.value = newValue;
     }
@@ -181,7 +199,8 @@ export function fixTokenRangesXlsx (
   const { addBounds, thisRow } = options;
   let offsetSkew = 0;
   const output: Token[] = [];
-  for (const t of tokens) {
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
     const token = cloneToken(t);
     let offsetDelta = 0;
     if (token.type === REF_STRUCT) {
@@ -197,7 +216,7 @@ export function fixTokenRangesXlsx (
       if (addBounds) {
         addA1RangeBounds(range);
       }
-      const newValue = stringifyA1RefXlsx(ref);
+      const newValue = keepPrefixQuotes(stringifyA1RefXlsx(ref), tokens, i);
       offsetDelta = newValue.length - token.value.length;
       token.value = newValue;
     }

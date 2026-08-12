@@ -175,6 +175,15 @@ The per-name rule holds where the sheet range does, in front of a cell reference
 A `$` may not appear on an unquoted sheet name. Excel refuses `=SUM($Jan:$Mar!A1)` on entry, and a file containing one does not open at all. `$` is a legal character in a sheet name, so the quoted spelling `'$Jan:$Mar'!A1` is a valid sheet range.
 
 
+### Where the prefix stands
+
+Everything above decides the quotes from the sheet name. One position decides them regardless of the name: the right endpoint of a range operator. A prefix there is next to an operand that a bare sheet name would join, so dropping needless quotes changes the reference. `Mar:'.Mar'!A1` is the name `Mar` joined to `'.Mar'!A1`, and `.Mar` needs no quotes of its own — but written back as `Mar:.Mar!A1` it names the two sheets `Mar` and `.Mar`. `Alpha:'Gamma'!A1` and `Alpha:Gamma!A1` part the same way.
+
+Excel writes *every* prefix in that position quoted, whatever the name: `Sheet1!A1:Sheet2!B2` is stored `Sheet1!A1:'Sheet2'!B2`, and `A1:[Book.xlsx]Jan:Apr!B2` is stored `A1:'[1]Jan:Apr'!B2`, brackets inside the quotes. It reads the bare spelling as the same reference, so both forms mean one thing wherever the name has no other reading.
+
+_Fx_ splits the difference by what each function is for. `translateToA1` writes the quotes on every such prefix, matching Excel's serialization. `fixRanges` keeps the quotes it was given there and adds none, so a reference never changes meaning through it and a formula that was already bare and unambiguous comes back as written. The two therefore compose in either order rather than undoing each other.
+
+
 ### A quote around one sheet name
 
 A prefix is normally either quoted whole or not at all. _Fx_ also accepts a quote around the *first* name alone — `'foo':bar!A1`, `'foo bar':baz!A1` — which is redundant rather than wrong, and Excel reads it the same way: hand-written into a file, `'R':Gamma!A1` is read as the sheet range and normalized to `'R:Gamma'!A1`. Serializing redistributes the quoting over the whole prefix, so `'foo bar':baz!A1` comes back out as `'foo bar:baz'!A1`. A quoted name may hold no colon of its own (Excel forbids one in a sheet name, and the colon dividing the two names is behind it), so `'a:b':Jan!A1` is not a sheet range.
