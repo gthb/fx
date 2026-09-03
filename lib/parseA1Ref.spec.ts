@@ -144,8 +144,6 @@ describe('parse A1 references', () => {
     isA1Equal("foo:'bar baz'!A1", undefined, { xlsx: true });
     isA1Equal("1:'Dec'!A1", undefined, { xlsx: true });
     isA1Equal("5:'a b'!A1", undefined, { xlsx: true });
-    // A quote on the first end does not bring the sheet range back. Excel reads a quoted first
-    // end as the name operand, and leaves the whole form as written on the next save.
     isA1Equal("'foo':'bar'!A1", undefined);
     isA1Equal("'foo bar':'baz'!A1", undefined);
     isA1Equal("'foo':'bar'!A1", undefined, { xlsx: true });

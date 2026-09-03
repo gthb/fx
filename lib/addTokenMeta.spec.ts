@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { FX_PREFIX, OPERATOR, NUMBER, REF_RANGE, REF_BEAM, FUNCTION, WHITESPACE, REF_STRUCT, CONTEXT_QUOTE } from './constants.ts';
+import { FX_PREFIX, OPERATOR, NUMBER, REF_RANGE, REF_BEAM, FUNCTION, WHITESPACE, REF_STRUCT, REF_NAMED } from './constants.ts';
 import { addTokenMeta } from './addTokenMeta.ts';
 import { tokenize } from './tokenize.ts';
 
@@ -88,7 +88,7 @@ describe('add extra meta to operators', () => {
       // `'jan':'dec'!B11` is not a sheet range: the quote on the second name makes the colon a
       // range operator, so it is the name `jan` joined to `'dec'!B11`, and that reference groups
       // with the lone `Dec!B11` below rather than with the sheet ranges.
-      { index: 5, depth: 0, type: CONTEXT_QUOTE, value: "'jan'" },
+      { index: 5, depth: 0, type: REF_NAMED, value: "'jan'" },
       { index: 6, depth: 0, type: OPERATOR, value: ':' },
       { index: 7, depth: 0, type: REF_RANGE, value: "'dec'!B11", groupId: 'fxg2' },
       { index: 8, depth: 0, type: OPERATOR, value: ',' },
